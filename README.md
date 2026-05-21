@@ -1,4 +1,4 @@
-# Portafolio Profesional de Richard Garcia | 2025
+# Portafolio Profesional de Richard Garcia 
 
 ![React](https://img.shields.io/badge/React-61DAFB?style=for-the-badge&logo=react&logoColor=black)
 ![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)
@@ -60,7 +60,7 @@ Si deseas ejecutar este proyecto en tu propia máquina, sigue estos pasos:
 1.  **Clona el repositorio:**
     ```bash
     git clone https://github.com/riche45/Professional-Landing.git
-    cd Professional-Landing
+    cd Professional-Page
     ```
 
 2.  **Instala las dependencias:**
@@ -91,5 +91,4 @@ Si deseas ejecutar este proyecto en tu propia máquina, sigue estos pasos:
 
 ## 📫 Contacto
 
-*   **LinkedIn:** [Richard Garcia](https://www.linkedin.com/in/richard-garcia-vizcaino/)
 *   **Email:** `richardlisongarcia@gmail.com` 
