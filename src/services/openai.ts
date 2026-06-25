@@ -1,3 +1,5 @@
+import { supabase } from '../lib/supabase';
+
 // Tipos de respuesta y utilidades
 export interface BotResponse {
   content: string;
@@ -163,11 +165,44 @@ const findBestResponse = (message: string): BotResponse => {
     : botResponses.find(r => r.category === "fallback") || botResponses[5];
 };
 
-export const generateChatResponse = async (message: string, language: string = 'es'): Promise<string> => {
-  if (!message.trim()) {
-    throw new Error(language === 'es' ? "El mensaje no puede estar vacío" : "Message cannot be empty");
-  }
-
+// Fallback offline: respuestas por palabras clave (sin LLM).
+// Se usa si la Edge Function no está disponible (sin API key, sin red, etc.).
+const getKeywordResponse = (message: string, language: string): string => {
   const response = findBestResponse(message);
   return language === 'en' && response.content_en ? response.content_en : response.content;
-}; 
+};
+
+export interface ChatHistoryMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+/**
+ * Genera la respuesta del asistente.
+ * Fase 0: llama a la Edge Function `agent` (Groq + fallback Gemini).
+ * Si la función falla o no está configurada, cae al sistema de keywords.
+ */
+export const generateChatResponse = async (
+  message: string,
+  language: string = 'es',
+  history: ChatHistoryMessage[] = [],
+): Promise<string> => {
+  if (!message.trim()) {
+    throw new Error(language === 'es' ? 'El mensaje no puede estar vacío' : 'Message cannot be empty');
+  }
+
+  try {
+    const { data, error } = await supabase.functions.invoke('agent', {
+      body: { message: message.trim(), language, history },
+    });
+
+    if (error) throw error;
+    if (data?.reply) return data.reply as string;
+
+    // Respuesta inesperada -> fallback
+    return getKeywordResponse(message, language);
+  } catch (err) {
+    console.warn('Agent function unavailable, using keyword fallback:', err);
+    return getKeywordResponse(message, language);
+  }
+};

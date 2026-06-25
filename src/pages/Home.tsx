@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import CategoryCards from '../components/CategoryCards';
 import ArticleCard from '../components/ArticleCard';
-// import IntegratedChat from '../components/IntegratedChat';
+import IntegratedChat from '../components/IntegratedChat';
 import Newsletter from '../components/Newsletter';
 import Avatar from '../components/profile/Avatar';
 
@@ -52,7 +52,7 @@ export default function Home() {
         </p>
       </motion.div>
 
-      {/* Chat Section - temporarily hidden
+      {/* Chat Section */}
       <motion.div
         initial="hidden"
         animate="visible"
@@ -61,7 +61,6 @@ export default function Home() {
       >
         <IntegratedChat />
       </motion.div>
-      */}
 
       {/* Categories */}
       <motion.div

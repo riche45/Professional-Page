@@ -112,7 +112,8 @@ export default function IntegratedChat() {
     setError(null);
 
     try {
-      const response = await generateChatResponse(userMessage.content, i18n.language);
+      const history = messages.map((m) => ({ role: m.role, content: m.content }));
+      const response = await generateChatResponse(userMessage.content, i18n.language, history);
       
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
