@@ -1,0 +1,15 @@
+# Entorno y secretos
+.env
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Cache de modelos de HuggingFace (se descargan al vuelo)
+.cache/
+models/

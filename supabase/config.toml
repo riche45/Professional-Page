@@ -1,4 +1,10 @@
 
+# Analytics (Logflare) deshabilitado en local: en Windows requiere exponer el
+# Docker daemon en tcp://localhost:2375 y provoca el fallo "_supabase does not
+# exist". No es necesario para desarrollo. Reactivar solo si se necesita.
+[analytics]
+enabled = false
+
 [functions.add-subscriber]
 enabled = true
 verify_jwt = true

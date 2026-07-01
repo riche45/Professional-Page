@@ -1,0 +1,79 @@
+"""
+Explorador de RAG (Fase 1).
+
+Hace una busqueda semantica contra pgvector: convierte tu pregunta en un vector
+con el mismo modelo de embeddings y devuelve los chunks mas parecidos, con su
+score de similitud (0 a 1) y de que archivo del knowledge base salieron.
+
+Uso:
+    cd ai-agent
+    .venv\\Scripts\\activate
+    python query.py "cuanto cobras por un agente de IA"
+    # o sin argumentos, te lo pregunta:
+    python query.py
+"""
+
+import os
+import sys
+
+from dotenv import load_dotenv
+from supabase import create_client
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.vectorstores import SupabaseVectorStore
+
+load_dotenv()
+
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+EMBEDDING_MODEL = os.environ.get(
+    "EMBEDDING_MODEL",
+    "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+)
+TABLE_NAME = "documents"
+QUERY_NAME = "match_documents"
+
+# Cache del store para no recargar el modelo en cada llamada (util en los tests).
+_store: SupabaseVectorStore | None = None
+
+
+def get_store() -> SupabaseVectorStore:
+    global _store
+    if _store is None:
+        if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+            raise SystemExit(
+                "Faltan SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY en el .env"
+            )
+        client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+        embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+        _store = SupabaseVectorStore(
+            client=client,
+            embedding=embeddings,
+            table_name=TABLE_NAME,
+            query_name=QUERY_NAME,
+        )
+    return _store
+
+
+def search(query: str, k: int = 4):
+    """Devuelve una lista de (Document, score) ordenada por relevancia."""
+    return get_store().similarity_search_with_relevance_scores(query, k=k)
+
+
+def main() -> None:
+    query = " ".join(sys.argv[1:]).strip()
+    if not query:
+        query = input("Pregunta: ").strip()
+    if not query:
+        return
+
+    results = search(query, k=4)
+    print(f"\nTop {len(results)} resultados para: {query!r}\n")
+    for i, (doc, score) in enumerate(results, 1):
+        source = os.path.basename(doc.metadata.get("source", "?"))
+        preview = " ".join(doc.page_content.split())[:220]
+        print(f"[{i}] score={score:.3f}  fuente={source}")
+        print(f"    {preview}...\n")
+
+
+if __name__ == "__main__":
+    main()

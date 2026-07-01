@@ -1,0 +1,8 @@
+# Fase 1 - Pipeline de ingesta RAG (LangChain + embeddings open source)
+langchain>=0.3.0
+langchain-community>=0.3.0
+langchain-text-splitters>=0.3.0
+langchain-huggingface>=0.1.0
+sentence-transformers>=3.0.0
+supabase>=2.6.0
+python-dotenv>=1.0.0
