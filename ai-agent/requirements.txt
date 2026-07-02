@@ -6,3 +6,13 @@ langchain-huggingface>=0.1.0
 sentence-transformers>=3.0.0
 supabase>=2.6.0
 python-dotenv>=1.0.0
+
+# Fase 2 - Agente con LangGraph + tools (LLM open source via Groq, fallback Gemini)
+langgraph>=0.2.0
+langchain-groq>=0.2.0
+langchain-google-genai>=2.0.0
+requests>=2.31.0
+
+# Fase 2 - API HTTP del agente
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0

@@ -44,12 +44,27 @@ pip install -r requirements.txt
 
 ## Paso 3 — Configurar variables de entorno
 
-```powershell
-copy .env.example .env
+Crea un archivo `.env` en `ai-agent/` (está en `.gitignore`, no se sube al repo)
+con estas variables:
+
+```
+# Fase 1 (ingesta RAG)
+SUPABASE_URL=https://xxxxxxxx.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+EMBEDDING_MODEL=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+
+# Fase 2 (agente) — al menos una key de LLM es obligatoria
+GROQ_API_KEY=            # gratis en https://console.groq.com (principal)
+GEMINI_API_KEY=          # gratis en https://aistudio.google.com (fallback)
+GITHUB_USERNAME=riche45
+GITHUB_TOKEN=            # opcional, sube el limite de la API de GitHub
+
+# Fase 2 (API HTTP)
+FRONTEND_ORIGINS=*       # en prod: https://tudominio.vercel.app,http://localhost:5173
+RATE_LIMIT_PER_MINUTE=15
 ```
 
-Edita `.env` y rellena `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY`
-(Supabase → Settings → API). El `.env` está en `.gitignore` y no se sube al repo.
+`SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` salen de Supabase → Settings → API.
 
 ## Paso 4 — Ejecutar la ingesta
 
