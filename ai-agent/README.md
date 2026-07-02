@@ -1,8 +1,21 @@
-# AI Agent — Pipeline RAG (Fase 1)
+---
+title: Portfolio AI Agent
+emoji: 🤖
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: false
+---
 
-Servicio Python del agente de IA del portafolio. Esta fase implementa el
-**pipeline de ingesta RAG**: lee la base de conocimiento, genera embeddings con un
-modelo open source y los guarda en Supabase (pgvector).
+# AI Agent — Portafolio (RAG + LangGraph)
+
+Servicio Python del agente de IA del portafolio. Incluye el **pipeline de ingesta
+RAG** (Fase 1), el **agente con LangGraph + tools** y la **API FastAPI** (Fase 2),
+y el **despliegue en contenedor** para Hugging Face Spaces (Fase 3).
+
+> El bloque `---` de arriba es la metadata que Hugging Face Spaces lee para
+> construir el Space (Docker, puerto 7860). En GitHub se muestra como una tabla.
 
 > Arquitectura híbrida: el frontend (React) y el gateway (Supabase Edge Function, TS)
 > viven en la raíz del repo; este directorio contiene la parte Python
@@ -83,7 +96,31 @@ La primera vez descargará el modelo de embeddings (~470 MB). Al terminar, la ta
 Modelo por defecto: `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`
 (open source, multilingüe es/en, 384 dimensiones). Configurable vía `EMBEDDING_MODEL`.
 
-## Siguiente fase
+## Agente y API (Fase 2)
 
-Fase 2: agente con LangGraph (orquestación + tool de GitHub API) consumiendo este
-índice vectorial, expuesto como servicio y conectado al gateway de Supabase.
+```powershell
+# Chat por consola (con "glass box" de tools)
+python run_agent.py "que es EXONIK?"
+
+# API HTTP (Swagger en http://localhost:8000/docs)
+uvicorn api:app --reload --port 8000
+```
+
+Variables extra en `.env`: `GROQ_API_KEY` (obligatoria), `GEMINI_API_KEY`
+(fallback opcional), `GITHUB_USERNAME`, `FRONTEND_ORIGINS`, `RATE_LIMIT_PER_MINUTE`.
+
+## Despliegue en Hugging Face Spaces (Fase 3)
+
+Este directorio es autocontenido y se despliega como **Space de tipo Docker**.
+
+1. Crea un Space en https://huggingface.co/new-space → SDK **Docker** → Blank.
+2. Sube el contenido de `ai-agent/` al repo del Space (Dockerfile + código).
+3. En el Space → **Settings → Variables and secrets**, añade como *secrets*:
+   `GROQ_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, y como *variable*
+   `FRONTEND_ORIGINS` con tu dominio de Vercel (p.ej. `https://tu-web.vercel.app`).
+4. HF construye la imagen y expone `https://<usuario>-<space>.hf.space`.
+5. En **Vercel**, define `VITE_AGENT_API_URL` con esa URL y vuelve a desplegar.
+
+> Nota: en el free tier el Space se **duerme** por inactividad; la primera
+> petición tras un rato tardará más (cold start). El modelo de embeddings ya va
+> pre-descargado en la imagen para minimizarlo.

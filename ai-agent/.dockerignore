@@ -1,0 +1,21 @@
+# Entorno y secretos (nunca deben entrar en la imagen)
+.env
+.env.*
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Caches locales de modelos (se pre-descargan en el build)
+.cache/
+models/
+
+# Otros
+.git/
+.gitignore
