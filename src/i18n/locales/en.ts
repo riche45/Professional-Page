@@ -100,7 +100,7 @@ export default {
     experience: "Experienced professional in solving business problems with innovative solutions in domains such as finance, technology, health and education.",
   },
   chat: {
-    welcome: "Hi! 👋 I'm Richard's personal assistant. I can tell you about:\n\n📊 Experience and completed projects\n💻 Technologies and skills\n💰 Hourly rates (starting at $20 for freelance projects)\n📝 Articles and content\n\nYou can ask me about any of these topics or type 'prices' to see detailed rates. How can I help you?",
+    welcome: "Hi! 👋 I'm the AI assistant of Richard's portfolio. I'm an **agent** (LangGraph + RAG) that answers in real time about:\n\n🤖 His AI integration services (agents, RAG, pipelines)\n📊 His experience and flagship projects\n💻 His tech stack and skills\n💰 Rates and collaboration models\n🐙 His GitHub repositories (live lookup)\n\nAsk me anything and, if you're curious, hit \"Show reasoning\" to peek at how I work under the hood. How can I help you?",
     input_placeholder: "Type your message here...",
     assistant_status: "Personal Assistant",
     error_message: "Sorry, an error occurred. Please try again.",
@@ -111,6 +111,11 @@ export default {
     empty_message: "Message cannot be empty.",
     invalid_response: "No valid response received from the server.",
     status_online: 'Online',
+    show_reasoning: "Show reasoning",
+    hide_reasoning: "Hide reasoning",
+    reasoning_model: "model",
+    tool_search_portfolio: "Knowledge base search (RAG)",
+    tool_github_repos: "GitHub lookup (live API)",
     responses: {
       experience: 'I have over 5 years of experience in software development, working across various sectors such as finance, technology, healthcare, and education. I specialize in modern web development with React, TypeScript, Python for data analysis, and blockchain technologies like Solidity, Besu, and Web3.js.',
       projects: 'I\'ve worked on multiple projects including enterprise dashboards, healthcare mobile apps, e-learning systems, financial analysis platforms, and decentralized applications (dApps). You can see some of my work in the articles and categories section.',

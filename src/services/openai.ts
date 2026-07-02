@@ -1,5 +1,3 @@
-import { supabase } from '../lib/supabase';
-
 // Tipos de respuesta y utilidades
 export interface BotResponse {
   content: string;
@@ -177,32 +175,70 @@ export interface ChatHistoryMessage {
   content: string;
 }
 
+// Un paso del "glass box": una llamada a una tool o su resultado.
+export interface AgentStep {
+  type: 'tool_call' | 'tool_result';
+  name: string;
+  args?: Record<string, unknown> | null;
+  content?: string | null;
+}
+
+export interface AgentResponse {
+  reply: string;
+  provider?: string;
+  steps: AgentStep[];
+}
+
+// URL de la API del agente (FastAPI). En local usa localhost:8000;
+// en producción se define VITE_AGENT_API_URL (p.ej. la URL de HF Spaces/Render).
+const AGENT_API_URL =
+  (import.meta.env.VITE_AGENT_API_URL as string | undefined)?.replace(/\/$/, '') ||
+  'http://localhost:8000';
+
 /**
- * Genera la respuesta del asistente.
- * Fase 0: llama a la Edge Function `agent` (Groq + fallback Gemini).
- * Si la función falla o no está configurada, cae al sistema de keywords.
+ * Genera la respuesta del asistente llamando al agente (LangGraph) vía su API.
+ * Devuelve la respuesta + el "glass box" (tools usadas). Si la API no está
+ * disponible, cae al sistema de keywords local.
  */
 export const generateChatResponse = async (
   message: string,
   language: string = 'es',
   history: ChatHistoryMessage[] = [],
-): Promise<string> => {
+): Promise<AgentResponse> => {
   if (!message.trim()) {
     throw new Error(language === 'es' ? 'El mensaje no puede estar vacío' : 'Message cannot be empty');
   }
 
   try {
-    const { data, error } = await supabase.functions.invoke('agent', {
-      body: { message: message.trim(), language, history },
+    const res = await fetch(`${AGENT_API_URL}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: message.trim(), history }),
     });
 
-    if (error) throw error;
-    if (data?.reply) return data.reply as string;
+    // Rate limit del backend: mensaje amable en lugar del fallback de keywords.
+    if (res.status === 429) {
+      const msg =
+        language === 'es'
+          ? 'Has enviado demasiados mensajes en poco tiempo. Espera un momento e inténtalo de nuevo.'
+          : "You've sent too many messages in a short time. Please wait a moment and try again.";
+      return { reply: msg, steps: [] };
+    }
 
-    // Respuesta inesperada -> fallback
-    return getKeywordResponse(message, language);
+    if (!res.ok) throw new Error(`Agent API error: ${res.status}`);
+
+    const data = await res.json();
+    if (data?.reply) {
+      return {
+        reply: data.reply as string,
+        provider: data.provider as string | undefined,
+        steps: (data.steps as AgentStep[]) ?? [],
+      };
+    }
+
+    return { reply: getKeywordResponse(message, language), steps: [] };
   } catch (err) {
-    console.warn('Agent function unavailable, using keyword fallback:', err);
-    return getKeywordResponse(message, language);
+    console.warn('Agent API unavailable, using keyword fallback:', err);
+    return { reply: getKeywordResponse(message, language), steps: [] };
   }
 };

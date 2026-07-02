@@ -103,7 +103,7 @@ export default {
     experience: 'Profesional experimentado en resolver problemas de negocio con soluciones innovadoras en dominios como finanzas, tecnología, salud y educación.',
   },
   chat: {
-    welcome: "¡Hola! 👋 Soy el asistente personal de Richard. Puedo informarte sobre:\n\n🤖 Servicios de IA especializada\n📊 Experiencia y proyectos realizados\n💻 Tecnologías y habilidades\n💰 Tarifas por hora (desde $20 para proyectos freelance)\n📝 Artículos y contenido\n\nPuedes preguntarme sobre cualquiera de estos temas o escribir 'precios' para ver las tarifas detalladas. ¿En qué puedo ayudarte?",
+    welcome: "¡Hola! 👋 Soy el asistente con IA del portafolio de Richard. Soy un **agente** (LangGraph + RAG) que responde en tiempo real sobre:\n\n🤖 Sus servicios de integración de IA (agentes, RAG, pipelines)\n📊 Su experiencia y proyectos destacados\n💻 Su stack y habilidades técnicas\n💰 Tarifas y modelos de colaboración\n🐙 Sus repositorios de GitHub (consulta en vivo)\n\nPregúntame lo que quieras y, si te da curiosidad, pulsa \"Ver razonamiento\" para asomarte a cómo trabajo por dentro. ¿En qué puedo ayudarte?",
     input_placeholder: "Escribe tu mensaje aquí...",
     assistant_status: "Asistente personal",
     error_message: "Lo siento, ha ocurrido un error. Por favor, intenta de nuevo.",
@@ -113,6 +113,11 @@ export default {
     server_error: "Error en el servidor. Por favor, intenta más tarde.",
     empty_message: "El mensaje no puede estar vacío.",
     invalid_response: "No se recibió una respuesta válida del servidor.",
+    show_reasoning: "Ver razonamiento",
+    hide_reasoning: "Ocultar razonamiento",
+    reasoning_model: "modelo",
+    tool_search_portfolio: "Búsqueda en base de conocimiento (RAG)",
+    tool_github_repos: "Consulta a GitHub (API en vivo)",
     responses: {
       experience: 'Tengo más de 5 años de experiencia en desarrollo de software, trabajando en diversos sectores como finanzas, tecnología, salud y educación. Me especializo en desarrollo web moderno con React, TypeScript, Python para análisis de datos, y tecnologías blockchain como Solidity, Besu y Web3.js.',
       projects: 'He trabajado en múltiples proyectos incluyendo dashboards empresariales, aplicaciones móviles de salud, sistemas de e-learning, plataformas de análisis financiero y aplicaciones descentralizadas (dApps). Puedes ver algunos de mis trabajos en la sección de artículos y categorías.',

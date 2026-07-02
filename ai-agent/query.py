@@ -14,6 +14,7 @@ Uso:
 """
 
 import os
+import re
 import sys
 
 from dotenv import load_dotenv
@@ -32,21 +33,28 @@ EMBEDDING_MODEL = os.environ.get(
 TABLE_NAME = "documents"
 QUERY_NAME = "match_documents"
 
-# Cache del store para no recargar el modelo en cada llamada (util en los tests).
+# Cache del store/cliente para no recargar el modelo en cada llamada.
 _store: SupabaseVectorStore | None = None
+_client = None
+
+
+def get_client():
+    global _client
+    if _client is None:
+        if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+            raise SystemExit(
+                "Faltan SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY en el .env"
+            )
+        _client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    return _client
 
 
 def get_store() -> SupabaseVectorStore:
     global _store
     if _store is None:
-        if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
-            raise SystemExit(
-                "Faltan SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY en el .env"
-            )
-        client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
         embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
         _store = SupabaseVectorStore(
-            client=client,
+            client=get_client(),
             embedding=embeddings,
             table_name=TABLE_NAME,
             query_name=QUERY_NAME,
@@ -55,8 +63,68 @@ def get_store() -> SupabaseVectorStore:
 
 
 def search(query: str, k: int = 4):
-    """Devuelve una lista de (Document, score) ordenada por relevancia."""
+    """Busqueda semantica: lista de (Document, score) ordenada por relevancia."""
     return get_store().similarity_search_with_relevance_scores(query, k=k)
+
+
+def keyword_search(query: str, k: int = 4):
+    """Busqueda por palabra clave (ILIKE) sobre el contenido de los chunks.
+
+    Complementa a la vectorial para nombres propios/terminos exactos (p.ej.
+    'EXONIK'), que los embeddings no capturan bien. Devuelve [(content, metadata)].
+    """
+    # Palabras "significativas" (>=4 chars) para no buscar articulos/conectores.
+    words = list(dict.fromkeys(re.findall(r"[A-Za-zÀ-ÿ0-9]{4,}", query)))
+    if not words:
+        return []
+    # PostgREST usa '*' como comodin dentro de or_(...).
+    ors = ",".join(f"content.ilike.*{w}*" for w in words)
+    res = (
+        get_client()
+        .table(TABLE_NAME)
+        .select("content, metadata")
+        .or_(ors)
+        .limit(k)
+        .execute()
+    )
+    return [(row["content"], row.get("metadata") or {}) for row in (res.data or [])]
+
+
+def hybrid_search(query: str, k: int = 4):
+    """Combina busqueda vectorial + por keyword y deduplica.
+
+    Devuelve una lista de dicts: {content, source, score, via}.
+    """
+    results = []
+    seen = set()
+
+    for doc, score in search(query, k=k):
+        key = doc.page_content[:80]
+        seen.add(key)
+        results.append(
+            {
+                "content": doc.page_content,
+                "source": os.path.basename(doc.metadata.get("source", "?")),
+                "score": score,
+                "via": "vector",
+            }
+        )
+
+    for content, meta in keyword_search(query, k=k):
+        key = content[:80]
+        if key in seen:
+            continue
+        seen.add(key)
+        results.append(
+            {
+                "content": content,
+                "source": os.path.basename((meta or {}).get("source", "?")),
+                "score": None,
+                "via": "keyword",
+            }
+        )
+
+    return results
 
 
 def main() -> None:

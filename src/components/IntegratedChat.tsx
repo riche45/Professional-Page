@@ -1,8 +1,8 @@
-import { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User } from 'lucide-react';
+import { useState, useRef, useEffect, type ReactNode } from 'react';
+import { Send, Bot, User, Sparkles, ChevronDown, Search, Github } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { generateChatResponse } from '../services/openai';
+import { generateChatResponse, type AgentStep } from '../services/openai';
 import { Link } from 'react-router-dom';
 
 export interface Message {
@@ -10,55 +10,181 @@ export interface Message {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  steps?: AgentStep[];
+  provider?: string;
 }
 
-// Función para convertir texto con formato markdown a JSX
-const parseMessage = (content: string) => {
+// Renderiza el formato "inline" de una línea: enlaces [texto](url) y **negrita**.
+const renderInline = (text: string, keyPrefix: string): ReactNode[] => {
+  const nodes: ReactNode[] = [];
+  // Divide primero por enlaces markdown.
   const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
-  const parts = [];
-  let lastIndex = 0;
-  let match;
+  let last = 0;
+  let match: RegExpExecArray | null;
+  let seg = 0;
 
-  while ((match = linkRegex.exec(content)) !== null) {
-    // Agregar el texto antes del enlace
-    if (match.index > lastIndex) {
-      parts.push(content.slice(lastIndex, match.index));
+  const pushWithBold = (str: string) => {
+    // Dentro del texto plano, convierte **negrita** en <strong>.
+    const boldRegex = /\*\*([^*]+)\*\*/g;
+    let bLast = 0;
+    let bMatch: RegExpExecArray | null;
+    while ((bMatch = boldRegex.exec(str)) !== null) {
+      if (bMatch.index > bLast) nodes.push(str.slice(bLast, bMatch.index));
+      nodes.push(<strong key={`${keyPrefix}-b-${seg++}`}>{bMatch[1]}</strong>);
+      bLast = bMatch.index + bMatch[0].length;
     }
+    if (bLast < str.length) nodes.push(str.slice(bLast));
+  };
 
-    // Agregar el enlace como componente Link
-    const [, text, url] = match;
-    parts.push(
-      <Link
-        key={match.index}
-        to={url}
-        className="text-blue-500 hover:text-blue-700 dark:text-primary-400 dark:hover:text-primary-300 underline"
-      >
-        {text}
-      </Link>
+  while ((match = linkRegex.exec(text)) !== null) {
+    if (match.index > last) pushWithBold(text.slice(last, match.index));
+    const [, label, url] = match;
+    const isInternal = url.startsWith('/');
+    nodes.push(
+      isInternal ? (
+        <Link
+          key={`${keyPrefix}-l-${seg++}`}
+          to={url}
+          className="text-blue-500 hover:text-blue-700 dark:text-primary-400 dark:hover:text-primary-300 underline"
+        >
+          {label}
+        </Link>
+      ) : (
+        <a
+          key={`${keyPrefix}-l-${seg++}`}
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-500 hover:text-blue-700 dark:text-primary-400 dark:hover:text-primary-300 underline break-all"
+        >
+          {label}
+        </a>
+      )
     );
-
-    lastIndex = match.index + match[0].length;
+    last = match.index + match[0].length;
   }
-
-  // Agregar el texto restante después del último enlace
-  if (lastIndex < content.length) {
-    parts.push(content.slice(lastIndex));
-  }
-
-  // Manejar saltos de línea
-  return parts.map((part, index) => 
-    typeof part === 'string' ? (
-      <span key={index}>
-        {part.split('\\n').map((line, i) => (
-          <span key={i}>
-            {line}
-            {i < part.split('\\n').length - 1 && <br />}
-          </span>
-        ))}
-      </span>
-    ) : part
-  );
+  if (last < text.length) pushWithBold(text.slice(last));
+  return nodes;
 };
+
+// Convierte el texto del mensaje (markdown ligero) a JSX: párrafos, viñetas,
+// negritas y enlaces. Evita mostrar asteriscos u otras marcas en crudo.
+const parseMessage = (content: string): ReactNode => {
+  const lines = content.split('\n');
+  const blocks: ReactNode[] = [];
+  let bullets: ReactNode[] = [];
+
+  const flushBullets = () => {
+    if (bullets.length === 0) return;
+    blocks.push(
+      <ul key={`ul-${blocks.length}`} className="list-disc pl-5 space-y-1 my-1">
+        {bullets}
+      </ul>
+    );
+    bullets = [];
+  };
+
+  lines.forEach((line, i) => {
+    const trimmed = line.trim();
+    const bulletMatch = /^[-*]\s+(.*)/.exec(trimmed);
+    if (bulletMatch) {
+      bullets.push(<li key={`li-${i}`}>{renderInline(bulletMatch[1], `li-${i}`)}</li>);
+      return;
+    }
+    flushBullets();
+    if (trimmed === '') return;
+    blocks.push(
+      <p key={`p-${i}`} className="my-1 first:mt-0 last:mb-0">
+        {renderInline(line, `p-${i}`)}
+      </p>
+    );
+  });
+  flushBullets();
+
+  return blocks;
+};
+
+// "Glass box": muestra de forma transparente qué herramientas usó el agente
+// para construir la respuesta (búsqueda RAG, consulta a GitHub, etc.).
+function GlassBox({ steps, provider }: { steps: AgentStep[]; provider?: string }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+
+  const toolCalls = steps.filter((s) => s.type === 'tool_call');
+  if (toolCalls.length === 0) return null;
+
+  const toolLabel = (name: string) => {
+    const key = `chat.tool_${name}`;
+    const translated = t(key);
+    return translated === key ? name : translated;
+  };
+
+  const toolIcon = (name: string) => {
+    if (name === 'github_repos') return <Github size={12} />;
+    if (name === 'search_portfolio') return <Search size={12} />;
+    return <Sparkles size={12} />;
+  };
+
+  return (
+    <div className="mt-2">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-primary-400 transition-colors"
+      >
+        <Sparkles size={12} />
+        <span>{open ? t('chat.hide_reasoning') : t('chat.show_reasoning')}</span>
+        <span className="text-gray-400">({toolCalls.length})</span>
+        <ChevronDown
+          size={12}
+          className={`transition-transform ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="mt-2 space-y-2 rounded-lg border border-gray-200 dark:border-dark-600 bg-gray-50 dark:bg-dark-900/50 p-3">
+              {provider && (
+                <div className="text-[11px] text-gray-400 dark:text-gray-500">
+                  {t('chat.reasoning_model')}: <span className="font-mono">{provider}</span>
+                </div>
+              )}
+              {steps.map((step, i) =>
+                step.type === 'tool_call' ? (
+                  <div
+                    key={i}
+                    className="flex items-center gap-1.5 text-xs font-medium text-blue-600 dark:text-primary-400"
+                  >
+                    {toolIcon(step.name)}
+                    <span>{toolLabel(step.name)}</span>
+                    {step.args && Object.keys(step.args).length > 0 && (
+                      <span className="font-mono text-gray-400 dark:text-gray-500">
+                        {JSON.stringify(step.args)}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <div
+                    key={i}
+                    className="pl-4 border-l-2 border-gray-200 dark:border-dark-600 text-[11px] leading-relaxed text-gray-500 dark:text-gray-400"
+                  >
+                    {step.content}
+                  </div>
+                )
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 export default function IntegratedChat() {
   const { t, i18n } = useTranslation();
@@ -73,8 +199,10 @@ export default function IntegratedChat() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Evita hacer scroll en el primer render (si no, la página "salta" al cargar).
+  const hasInteracted = useRef(false);
 
   useEffect(() => {
     setMessages([
@@ -87,11 +215,15 @@ export default function IntegratedChat() {
     ]);
   }, [i18n.language, t]);
 
+  // Solo hace scroll DENTRO de la cajita del chat, nunca mueve la página entera.
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const el = messagesContainerRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
   };
 
   useEffect(() => {
+    // No hacer scroll al cargar; solo tras la primera interacción del usuario.
+    if (!hasInteracted.current) return;
     scrollToBottom();
   }, [messages]);
 
@@ -106,6 +238,7 @@ export default function IntegratedChat() {
       timestamp: new Date()
     };
 
+    hasInteracted.current = true;
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
@@ -114,12 +247,14 @@ export default function IntegratedChat() {
     try {
       const history = messages.map((m) => ({ role: m.role, content: m.content }));
       const response = await generateChatResponse(userMessage.content, i18n.language, history);
-      
+
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: response,
-        timestamp: new Date()
+        content: response.reply,
+        timestamp: new Date(),
+        steps: response.steps,
+        provider: response.provider,
       };
 
       setMessages(prev => [...prev, assistantMessage]);
@@ -158,7 +293,7 @@ export default function IntegratedChat() {
       </div>
 
       {/* Messages Area */}
-      <div className="h-96 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-dark-900/50">
+      <div ref={messagesContainerRef} className="h-96 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-dark-900/50">
         <AnimatePresence>
           {messages.map((message) => (
             <motion.div
@@ -183,10 +318,13 @@ export default function IntegratedChat() {
                       : 'bg-white dark:bg-dark-700 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-transparent'
                   }`}
                 >
-                  <p className="text-sm leading-relaxed">
+                  <div className="text-sm leading-relaxed">
                     {parseMessage(message.content)}
-                  </p>
+                  </div>
                 </div>
+                {message.role === 'assistant' && message.steps && message.steps.length > 0 && (
+                  <GlassBox steps={message.steps} provider={message.provider} />
+                )}
                 <p className="text-xs text-gray-500 dark:text-gray-500 mt-1 px-1">
                   {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </p>
@@ -229,8 +367,6 @@ export default function IntegratedChat() {
             {error}
           </motion.div>
         )}
-        
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Input Area */}

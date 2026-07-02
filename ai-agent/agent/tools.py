@@ -11,8 +11,8 @@ import os
 import requests
 from langchain_core.tools import tool
 
-# Reutilizamos la busqueda semantica de la Fase 1 (query.py).
-from query import search as _rag_search
+# Reutilizamos la busqueda hibrida (vectorial + keyword) de la Fase 1 (query.py).
+from query import hybrid_search as _rag_search
 
 
 @tool
@@ -20,7 +20,8 @@ def search_portfolio(query: str) -> str:
     """Busca informacion sobre Richard García (su experiencia, habilidades,
     proyectos, servicios de IA y precios) en su base de conocimiento.
     Usa esta herramienta para responder cualquier pregunta sobre Richard,
-    lo que hace, como trabaja o cuanto cobra.
+    lo que hace, como trabaja o cuanto cobra, incluyendo nombres propios de
+    proyectos como 'EXONIK' o 'Viennify'.
 
     Args:
         query: la pregunta o el tema a buscar, en lenguaje natural.
@@ -30,10 +31,13 @@ def search_portfolio(query: str) -> str:
         return "No se encontro informacion relevante."
 
     bloques = []
-    for doc, score in results:
-        fuente = os.path.basename(doc.metadata.get("source", "?"))
-        contenido = " ".join(doc.page_content.split())
-        bloques.append(f"[fuente: {fuente} | similitud: {score:.2f}]\n{contenido}")
+    for r in results:
+        contenido = " ".join(r["content"].split())
+        if r["score"] is not None:
+            etiqueta = f"[fuente: {r['source']} | similitud: {r['score']:.2f}]"
+        else:
+            etiqueta = f"[fuente: {r['source']} | coincidencia por palabra clave]"
+        bloques.append(f"{etiqueta}\n{contenido}")
     return "\n\n".join(bloques)
 
 
