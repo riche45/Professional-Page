@@ -91,8 +91,22 @@ def answer(message: str, history: Optional[list] = None) -> dict:
     messages = _build_messages(message, history)
     result = agent.invoke({"messages": messages})
     final = result["messages"][-1]
+    content = final.content
+    # Gemini a veces devuelve content como lista de bloques [{type, text}, ...]
+    if isinstance(content, list):
+        parts = []
+        for block in content:
+            if isinstance(block, dict) and block.get("text"):
+                parts.append(str(block["text"]))
+            else:
+                parts.append(str(block))
+        content = "".join(parts)
+    elif content is None:
+        content = ""
+    else:
+        content = str(content)
     return {
-        "reply": final.content,
+        "reply": content,
         "provider": result.get("provider", primary_provider),
         "steps": build_glass_box(result["messages"]),
     }
