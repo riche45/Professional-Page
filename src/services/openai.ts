@@ -216,13 +216,14 @@ export const generateChatResponse = async (
       body: JSON.stringify({ message: message.trim(), history }),
     });
 
-    // Rate limit del backend: mensaje amable en lugar del fallback de keywords.
-    if (res.status === 429) {
-      const msg =
-        language === 'es'
-          ? 'Has enviado demasiados mensajes en poco tiempo. Espera un momento e inténtalo de nuevo.'
-          : "You've sent too many messages in a short time. Please wait a moment and try again.";
-      return { reply: msg, steps: [] };
+    const busyMsg =
+      language === 'es'
+        ? 'El asistente está ocupado o ha alcanzado el límite temporal del proveedor. Espera unos segundos e inténtalo de nuevo.'
+        : 'The assistant is busy or hit a temporary provider limit. Please wait a few seconds and try again.';
+
+    // Rate limit del backend / sobrecarga del LLM: mensaje claro (no keywords).
+    if (res.status === 429 || res.status === 500 || res.status === 503) {
+      return { reply: busyMsg, steps: [] };
     }
 
     if (!res.ok) throw new Error(`Agent API error: ${res.status}`);

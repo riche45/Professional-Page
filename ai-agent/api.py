@@ -101,26 +101,16 @@ def health():
     return {"status": "ok"}
 
 
-@app.get("/debug/config")
-def debug_config():
-    """Diagnostico seguro: solo indica si las env vars existen (nunca sus valores)."""
-    return {
-        "groq_key": bool(os.environ.get("GROQ_API_KEY")),
-        "gemini_key": bool(os.environ.get("GEMINI_API_KEY")),
-        "supabase_url": bool(os.environ.get("SUPABASE_URL")),
-        "supabase_key": bool(os.environ.get("SUPABASE_SERVICE_ROLE_KEY")),
-        "frontend_origins": os.environ.get("FRONTEND_ORIGINS", "*"),
-        "embedding_model": os.environ.get("EMBEDDING_MODEL", ""),
-    }
-
-
 @app.post("/chat", response_model=ChatResponse)
 def chat(req: ChatRequest, request: Request):
     _check_rate_limit(request)
     history = [t.model_dump() for t in req.history]
     try:
         result = answer(req.message, history)
-    except Exception as e:  # noqa: BLE001 - devolver causa al cliente para diagnosticar
-        # No filtramos secretos: el mensaje de error de proveedores no los incluye.
-        raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {e}") from e
+    except Exception as e:  # noqa: BLE001
+        # Mensaje corto: no filtramos secretos, pero evitamos volcar el traceback.
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error del agente: {type(e).__name__}",
+        ) from e
     return result
