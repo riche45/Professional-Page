@@ -69,7 +69,12 @@ def build_agent():
                     response = llm_with_tools.invoke(state["messages"])
                     return {"messages": [response], "provider": provider}
                 except Exception as e:  # noqa: BLE001 - reintentar / caer a otro proveedor
-                    errors.append(f"{provider} (intento {attempt}): {type(e).__name__}")
+                    # Guardamos tipo + un extracto del mensaje para diagnosticar
+                    # (403 de VPN, 429 de cuota, modelo deprecado, etc.).
+                    snippet = " ".join(str(e).split())[:120]
+                    errors.append(
+                        f"{provider} (intento {attempt}): {type(e).__name__}: {snippet}"
+                    )
                     if _is_quota_error(e):
                         break  # sin cuota: no insistas, pasa al siguiente proveedor
                     time.sleep(0.5 * attempt)  # backoff antes de reintentar

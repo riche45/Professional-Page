@@ -14,7 +14,9 @@ import os
 
 
 GROQ_MODEL = "llama-3.3-70b-versatile"
-GEMINI_MODEL = "gemini-2.0-flash"
+# gemini-2.0-flash a menudo sin cuota en free tier nuevo; flash-latest apunta
+# al flash disponible actualmente en AI Studio.
+GEMINI_MODEL = "gemini-flash-latest"
 
 # temperatura baja = llamadas a tools mas deterministas y fiables
 TEMPERATURE = 0.2
